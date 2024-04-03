@@ -40,7 +40,7 @@ The owner adds addresses to the allow list, enabling them to mint tokens during 
 
 ### 7. Minting
 Eligible users can mint tokens, either during the allow list phase or the public sale, using either ETH, USDC, or USDT for payment.
-**Mint with ETH**: Users can mint tokens by sending the correct amount of ETH to the contract.
-**Mint with USDC/USDT**: Users approve the contract to spend the required amount of USDC/USDT and then call the mint function.
+- **Mint with ETH**: Users can mint tokens by sending the correct amount of ETH to the contract.
+- **Mint with USDC/USDT**: Users approve the contract to spend the required amount of USDC/USDT and then call the mint function.
 Approve function should be called from the USDC/USDT contract 
 
