@@ -26,7 +26,7 @@ npx hardhat ignition deploy ./ignition/modules/Lock.js
 ### 2. Set Base URI
 - Set the initial server URL as the base URI
 
-### 3. Burn  tokenId = 3 
+### 3. Burn  tokenId = 0
 
 ### 4. Activate sale
 - Activate Sale status, whitelist status and whitelist as necessary 
