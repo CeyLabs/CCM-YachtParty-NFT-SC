@@ -67,18 +67,13 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         _safeMint(msg.sender, ts);
     }
 
-    function mintAllowListWithUSDC(uint8 numberOfTokens) external {
+    function mintAllowListWithUSDC() external {
         uint256 ts = totalSupply();
         require(isAllowListActive, "Allow list is not active");
         require(_allowList[msg.sender], "Address not allowed to mint");
-
+        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            ts + numberOfTokens <= MAX_SUPPLY,
-            "Purchase would exceed max tokens"
-        );
-        uint256 totalCost = PRICE_PER_TOKEN_USD * numberOfTokens;
-        require(
-            usdc.transferFrom(msg.sender, address(this), totalCost),
+            usdc.transferFrom(msg.sender, address(this), PRICE_PER_TOKEN_USD),
             "USDC transfer failed"
         );
 
@@ -89,14 +84,9 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         uint256 ts = totalSupply();
         require(isAllowListActive, "Allow list is not active");
         require(_allowList[msg.sender], "Address not allowed to mint");
-
+        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            ts + numberOfTokens <= MAX_SUPPLY,
-            "Purchase would exceed max tokens"
-        );
-        uint256 totalCost = PRICE_PER_TOKEN_USD * numberOfTokens;
-        require(
-            usdt.transferFrom(msg.sender, address(this), totalCost),
+            usdt.transferFrom(msg.sender, address(this), PRICE_PER_TOKEN_USD),
             "USDT transfer failed"
         );
 
