@@ -172,6 +172,13 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         _safeMint(msg.sender, ts);
     }
 
+    function mintToAddress(address to) public onlyOwner {
+        uint256 ts = totalSupply();
+        require(ts + 1 <= MAX_SUPPLY, "Minting would exceed max supply");
+
+        _safeMint(to, ts);
+    }
+
     //Withdraw Balance
     function withdrawETH() public onlyOwner {
         payable(msg.sender).transfer(address(this).balance);
