@@ -15,12 +15,12 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
 
     bool public isAllowListActive = false;
     uint256 public constant MAX_SUPPLY = 50;
-    uint256 public constant PRICE_PER_TOKEN = 0.03 ether;
-    uint256 public constant PRICE_PER_TOKEN_USD = 1; // change to 100 * 1**6
+    uint256 public PRICE_PER_TOKEN = 0.03 ether;
+    uint256 public PRICE_PER_TOKEN_USD = 75 * 1 ** 6; // change to 100 * 1**6
 
     IERC20 public usdc;
     IERC20 public usdt;
-    uint256 priceInWei = 1 * 10 ** 6;
+    // uint256 priceInWei = 1 * 10 ** 6;
 
     mapping(address => bool) private _allowList;
 
@@ -38,6 +38,14 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
     //Whitelist
     function setIsAllowListActive(bool _isAllowListActive) external onlyOwner {
         isAllowListActive = _isAllowListActive;
+    }
+
+    function setPrice(uint256 _PRICE_PER_TOKEN) external onlyOwner {
+        PRICE_PER_TOKEN = _PRICE_PER_TOKEN;
+    }
+
+    function setPriceUSD(uint256 _PRICE_PER_TOKEN_USD) external onlyOwner {
+        PRICE_PER_TOKEN_USD = _PRICE_PER_TOKEN_USD;
     }
 
     function setAllowList(
