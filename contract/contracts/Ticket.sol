@@ -1,23 +1,22 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.25;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts@4.6.0/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts@4.6.0/access/Ownable.sol";
+import "@openzeppelin/contracts@4.6.0/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts@4.6.0/token/ERC20/IERC20.sol";
 
-contract Ticket is ERC721, ERC721Enumerable, Ownable {
-    string public PROVENANCE;
+contract Ticket is ERC721Enumerable, Ownable {
     bool public saleIsActive = false;
     string private _baseURIextended;
 
     bool public isAllowListActive = false;
     uint256 public constant MAX_SUPPLY = 50;
-    uint256 public PRICE_PER_TOKEN = 0.03 ether;
-    uint256 public PRICE_PER_TOKEN_DISCOUNTED = 0.0225 ether;
-    uint256 public PRICE_PER_TOKEN_USD = 100 * 1 ** 6; // change to 100 * 1**6
-    uint256 public PRICE_PER_TOKEN_USD_DISCOUNTED = 75 * 1 ** 6;
+    uint256 public ETH_PRICE_PER_TOKEN = 0.03 ether;
+    uint256 public ETH_PRICE_PER_TOKEN_DISCOUNTED = 0.0225 ether;
+    uint256 public USD_PRICE_PER_TOKEN = 100 * 10 ** 6;
+    uint256 public USD_PRICE_PER_TOKEN_DISCOUNTED = 75 * 10 ** 6;
     IERC20 public usdc;
     IERC20 public usdt;
 
@@ -33,15 +32,16 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
     }
 
     // USDC ETH SEPOLA ->	0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
-    // USDC ETH SEPOLA ->	0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0
+    // USDT ETH SEPOLA ->	0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0
 
-    //Whitelist
+    // Toggle whitelist allow status
     function setIsAllowListActive(bool _isAllowListActive) external onlyOwner {
         isAllowListActive = _isAllowListActive;
     }
 
-    function setPrice(uint256 _PRICE_PER_TOKEN) external onlyOwner {
-        PRICE_PER_TOKEN = _PRICE_PER_TOKEN;
+    // Set new eth mint price
+    function setPrice(uint256 _ethPricePerToken) external onlyOwner {
+        ETH_PRICE_PER_TOKEN = _ethPricePerToken;
     }
 
     function setAllowList(
@@ -62,29 +62,30 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         }
     }
 
+    // Check if an address is included in allowed list
     function isAddressAllowed(address addr) external view returns (bool) {
         return _allowList[addr];
     }
 
+    // Check if an address is included in discount list
     function isAddressDiscounted(address addr) external view returns (bool) {
         return _discountList[addr];
     }
 
-    //Discounted Mint
-
-    function mintDiscountListWithETH() external payable {
+    // Discounted Mint
+    function mintDiscountedWithETH() external payable {
         uint256 ts = totalSupply();
         require(_discountList[msg.sender], "Address not allowed to mint");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            PRICE_PER_TOKEN_DISCOUNTED <= msg.value,
+            ETH_PRICE_PER_TOKEN_DISCOUNTED <= msg.value,
             "Ether value sent is not correct"
         );
 
         _safeMint(msg.sender, ts);
     }
 
-    function mintDiscountListWithUSDC() external {
+    function mintDiscountedWithUSDC() external {
         uint256 ts = totalSupply();
         require(_discountList[msg.sender], "Address not allowed to mint");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
@@ -92,7 +93,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
             usdc.transferFrom(
                 msg.sender,
                 address(this),
-                PRICE_PER_TOKEN_USD_DISCOUNTED
+                USD_PRICE_PER_TOKEN_DISCOUNTED
             ),
             "USDC transfer failed"
         );
@@ -100,7 +101,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         _safeMint(msg.sender, ts);
     }
 
-    function mintDiscountListWithUSDT() external {
+    function mintDiscountedWithUSDT() external {
         uint256 ts = totalSupply();
         require(_discountList[msg.sender], "Address not allowed to mint");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
@@ -108,7 +109,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
             usdt.transferFrom(
                 msg.sender,
                 address(this),
-                PRICE_PER_TOKEN_USD_DISCOUNTED
+                USD_PRICE_PER_TOKEN_DISCOUNTED
             ),
             "USDT transfer failed"
         );
@@ -117,56 +118,48 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
     }
 
     //Whitelist Mint
-    function mintAllowListWithETH() external payable {
+    function mintAllowedWithETH() external payable {
         uint256 ts = totalSupply();
         require(isAllowListActive, "Allow list is not active");
         require(_allowList[msg.sender], "Address not allowed to mint");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            PRICE_PER_TOKEN <= msg.value,
+            ETH_PRICE_PER_TOKEN <= msg.value,
             "Ether value sent is not correct"
         );
 
         _safeMint(msg.sender, ts);
     }
 
-    function mintAllowListWithUSDC() external {
+    function mintAllowedWithUSDC() external {
         uint256 ts = totalSupply();
         require(isAllowListActive, "Allow list is not active");
         require(_allowList[msg.sender], "Address not allowed to mint");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            usdc.transferFrom(msg.sender, address(this), PRICE_PER_TOKEN_USD),
+            usdc.transferFrom(msg.sender, address(this), USD_PRICE_PER_TOKEN),
             "USDC transfer failed"
         );
 
         _safeMint(msg.sender, ts);
     }
 
-    function mintAllowListWithUSDT() external {
+    function mintAllowedWithUSDT() external {
         uint256 ts = totalSupply();
         require(isAllowListActive, "Allow list is not active");
         require(_allowList[msg.sender], "Address not allowed to mint");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            usdt.transferFrom(msg.sender, address(this), PRICE_PER_TOKEN_USD),
+            usdt.transferFrom(msg.sender, address(this), USD_PRICE_PER_TOKEN),
             "USDT transfer failed"
         );
 
         _safeMint(msg.sender, ts);
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal override(ERC721, ERC721Enumerable) {
-        super._beforeTokenTransfer(from, to, tokenId);
-    }
-
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC721, ERC721Enumerable) returns (bool) {
+    ) public view virtual override(ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
@@ -178,10 +171,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         return _baseURIextended;
     }
 
-    function setProvenance(string memory provenance) public onlyOwner {
-        PROVENANCE = provenance;
-    }
-
+    // Pre-mint n number of tokens into the owner's wallet
     function reserve(uint256 n) public onlyOwner {
         uint supply = totalSupply();
         uint i;
@@ -190,6 +180,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         }
     }
 
+    // Toggle the sale state
     function setSaleState(bool newState) public onlyOwner {
         saleIsActive = newState;
     }
@@ -200,7 +191,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         require(saleIsActive, "Sale must be active to mint tokens");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
         require(
-            PRICE_PER_TOKEN <= msg.value,
+            ETH_PRICE_PER_TOKEN <= msg.value,
             "Ether value sent is not correct"
         );
 
@@ -212,7 +203,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         uint256 ts = totalSupply();
         require(saleIsActive, "Sale must be active to mint tokens");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        uint256 totalCost = PRICE_PER_TOKEN_USD;
+        uint256 totalCost = USD_PRICE_PER_TOKEN;
         require(
             usdc.transferFrom(msg.sender, address(this), totalCost),
             "USDC transfer failed"
@@ -226,7 +217,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         uint256 ts = totalSupply();
         require(saleIsActive, "Sale must be active to mint tokens");
         require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        uint256 totalCost = PRICE_PER_TOKEN_USD;
+        uint256 totalCost = USD_PRICE_PER_TOKEN;
         require(
             usdt.transferFrom(msg.sender, address(this), totalCost),
             "USDT transfer failed"
@@ -235,6 +226,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         _safeMint(msg.sender, ts);
     }
 
+    // Mint a token to a given address
     function mintToAddress(address to) public onlyOwner {
         uint256 ts = totalSupply();
         require(ts + 1 <= MAX_SUPPLY, "Minting would exceed max supply");
@@ -242,15 +234,17 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         _safeMint(to, ts);
     }
 
-    //Withdraw Balance
+    // Withdraw ETH balance in the contract
     function withdrawETH() public onlyOwner {
         payable(msg.sender).transfer(address(this).balance);
     }
 
+    // Withdraw USDC balance in the contract
     function withdrawUSDC() public onlyOwner {
         usdc.transfer(msg.sender, usdc.balanceOf(address(this)));
     }
 
+    // Withdraw USDT balance in the contract
     function withdrawUSDT() public onlyOwner {
         usdt.transfer(msg.sender, usdt.balanceOf(address(this)));
     }
