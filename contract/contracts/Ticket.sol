@@ -5,8 +5,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; //for USDC/USDT mints
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Ticket is ERC721, ERC721Enumerable, Ownable {
     string public PROVENANCE;
@@ -16,13 +15,14 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
     bool public isAllowListActive = false;
     uint256 public constant MAX_SUPPLY = 50;
     uint256 public PRICE_PER_TOKEN = 0.03 ether;
-    uint256 public PRICE_PER_TOKEN_USD = 75 * 1 ** 6; // change to 100 * 1**6
-
+    uint256 public PRICE_PER_TOKEN_DISCOUNTED = 0.0225 ether;
+    uint256 public PRICE_PER_TOKEN_USD = 100 * 1 ** 6; // change to 100 * 1**6
+    uint256 public PRICE_PER_TOKEN_USD_DISCOUNTED = 75 * 1 ** 6;
     IERC20 public usdc;
     IERC20 public usdt;
-    // uint256 priceInWei = 1 * 10 ** 6;
 
     mapping(address => bool) private _allowList;
+    mapping(address => bool) private _discountList;
 
     constructor(
         address _usdcAddress,
@@ -44,10 +44,6 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         PRICE_PER_TOKEN = _PRICE_PER_TOKEN;
     }
 
-    function setPriceUSD(uint256 _PRICE_PER_TOKEN_USD) external onlyOwner {
-        PRICE_PER_TOKEN_USD = _PRICE_PER_TOKEN_USD;
-    }
-
     function setAllowList(
         address[] calldata addresses,
         bool isAllowed
@@ -57,8 +53,67 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         }
     }
 
+    function setDiscountList(
+        address[] calldata addresses,
+        bool isDiscounted
+    ) external onlyOwner {
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _discountList[addresses[i]] = isDiscounted;
+        }
+    }
+
     function isAddressAllowed(address addr) external view returns (bool) {
         return _allowList[addr];
+    }
+
+    function isAddressDiscounted(address addr) external view returns (bool) {
+        return _discountList[addr];
+    }
+
+    //Discounted Mint
+
+    function mintDiscountListWithETH() external payable {
+        uint256 ts = totalSupply();
+        require(_discountList[msg.sender], "Address not allowed to mint");
+        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
+        require(
+            PRICE_PER_TOKEN_DISCOUNTED <= msg.value,
+            "Ether value sent is not correct"
+        );
+
+        _safeMint(msg.sender, ts);
+    }
+
+    function mintDiscountListWithUSDC() external {
+        uint256 ts = totalSupply();
+        require(_discountList[msg.sender], "Address not allowed to mint");
+        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
+        require(
+            usdc.transferFrom(
+                msg.sender,
+                address(this),
+                PRICE_PER_TOKEN_USD_DISCOUNTED
+            ),
+            "USDC transfer failed"
+        );
+
+        _safeMint(msg.sender, ts);
+    }
+
+    function mintDiscountListWithUSDT() external {
+        uint256 ts = totalSupply();
+        require(_discountList[msg.sender], "Address not allowed to mint");
+        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
+        require(
+            usdt.transferFrom(
+                msg.sender,
+                address(this),
+                PRICE_PER_TOKEN_USD_DISCOUNTED
+            ),
+            "USDT transfer failed"
+        );
+
+        _safeMint(msg.sender, ts);
     }
 
     //Whitelist Mint
@@ -88,7 +143,7 @@ contract Ticket is ERC721, ERC721Enumerable, Ownable {
         _safeMint(msg.sender, ts);
     }
 
-    function mintAllowListWithUSDT(uint8 numberOfTokens) external {
+    function mintAllowListWithUSDT() external {
         uint256 ts = totalSupply();
         require(isAllowListActive, "Allow list is not active");
         require(_allowList[msg.sender], "Address not allowed to mint");
