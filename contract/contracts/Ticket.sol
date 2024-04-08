@@ -173,7 +173,7 @@ contract Ticket is ERC721Enumerable, Ownable {
     // Pre-mint n number of tokens into the owner's wallet
     function reserve(uint256 n) public onlyOwner {
         uint ts = totalSupply();
-        require(ts + 1 <= MAX_SUPPLY, "Minting would exceed max supply");
+        require(ts + n <= MAX_SUPPLY, "Minting would exceed max supply");
         uint i;
         for (i = 0; i < n; i++) {
             _safeMint(msg.sender, ts + i);
