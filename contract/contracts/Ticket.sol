@@ -91,42 +91,44 @@ contract Ticket is ERC721Enumerable, Ownable {
     } 
 
     // Discounted Mint
-    function mintToken(string memory mintAsset, bool isDiscounted, bool isAllowed, bool isPublic, bool isVirtual) public payable {
+    function mintToken(string memory mintAsset, bool isPhysical) public payable {
         require(publicSaleActive, "Sale is not active");
 
-        bool ethPayment = enforceValidMintAsset(mintAsset);
+        bool isDiscounted = _discountList[msg.sender];
+        bool isAllowed = _allowList[msg.sender];
 
-        require(isDiscounted || isAllowed || isPublic, "Must be allowed, discounted or public");
+        bool ethPayment = enforceValidMintAsset(mintAsset);
 
         uint256 ethPaymentRequired;
         uint256 usdPaymentRequired;
 
         uint256 ts = totalSupply();
 
-        // Figure out the amounts need to be paid
-        if(isVirtual) {
-            tokenTicketTypes[ts] = 0;
-
-            if(isDiscounted) {
-                require(_discountList[msg.sender], "Address not allowed to mint");
-            }
-
-            if(ethPayment) {
-                ethPaymentRequired = ETH_PRICE_PER_TOKEN_DISCOUNTED;
-            } else {
-                usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
-            }
+        // Defaulting to virtual type settings
+        if(ethPayment) {
+            ethPaymentRequired = ETH_PRICE_PER_TOKEN_DISCOUNTED;
         } else {
-            require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
+            usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
+        }
+
+        tokenTicketTypes[ts] = 0;
+
+        // Figure out the amounts need to be paid
+        if(isPhysical) {
+            require(isAllowed, "Not whitelisted");
+
+            require(ts + 1 <= MAX_SUPPLY, "Physical tickets are sold out");
 
             tokenTicketTypes[ts] = 1;
 
-            if(ethPayment) {
-                ethPaymentRequired = ETH_PRICE_PER_TOKEN;
-            } else {
-                usdPaymentRequired = USD_PRICE_PER_TOKEN;
+            if(!isDiscounted) {
+                if(ethPayment) {
+                    ethPaymentRequired = ETH_PRICE_PER_TOKEN;
+                } else {
+                    usdPaymentRequired = USD_PRICE_PER_TOKEN;
+                }
             }
-        }
+        } 
 
         // Take payments
         if(ethPayment) {
@@ -140,10 +142,6 @@ contract Ticket is ERC721Enumerable, Ownable {
                 ),
                 "Stablecoin transfer failed"
             );
-        }
-
-        if(isAllowed && isAllowListActive) {
-            require(_allowList[msg.sender], "Address not allowed to mint");
         }
         
         _safeMint(msg.sender, ts);
