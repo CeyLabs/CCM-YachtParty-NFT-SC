@@ -15,14 +15,16 @@ contract Ticket is ERC721Enumerable, Ownable {
     // 0 for virtual, 1 for physical
     mapping(uint256 => uint256) public tokenTicketTypes;
 
-    bool public isAllowListActive = false;
+    uint[] public virtualTokenIds;
+    uint[] public physicalTokenIds;
+
     uint256 public constant MAX_SUPPLY = 50;
     uint256 public ETH_PRICE_PER_TOKEN = 0.03 ether;
     uint256 public ETH_PRICE_PER_TOKEN_DISCOUNTED = 0.0225 ether;
     uint256 public USD_PRICE_PER_TOKEN = 100 * 10 ** 6;
     uint256 public USD_PRICE_PER_TOKEN_DISCOUNTED = 75 * 10 ** 6;
 
-    mapping(address => bool) private _allowList;
+    mapping(address => bool) private _whitelist;
     mapping(address => bool) private _discountList;
 
     mapping(string => IERC20) private _stablecoins;
@@ -35,22 +37,17 @@ contract Ticket is ERC721Enumerable, Ownable {
         _stablecoins["USDC"] = IERC20(_usdcAddress);
     }
 
-    // Toggle whitelist allow status
-    function setIsAllowListActive(bool _isAllowListActive) external onlyOwner {
-        isAllowListActive = _isAllowListActive;
-    }
-
     // Set new eth mint price
     function setPrice(uint256 _ethPricePerToken) external onlyOwner {
         ETH_PRICE_PER_TOKEN = _ethPricePerToken;
     }
 
-    function setAllowList(
+    function setWhitelist(
         address[] calldata addresses,
-        bool isAllowed
+        bool isWhitelisted
     ) external onlyOwner {
         for (uint256 i = 0; i < addresses.length; i++) {
-            _allowList[addresses[i]] = isAllowed;
+            _whitelist[addresses[i]] = isWhitelisted;
         }
     }
 
@@ -63,9 +60,9 @@ contract Ticket is ERC721Enumerable, Ownable {
         }
     }
 
-    // Check if an address is included in allowed list
-    function isAddressAllowed(address addr) external view returns (bool) {
-        return _allowList[addr];
+    // Check if an address is included in whitelist
+    function isAddressWhitelisted(address addr) external view returns (bool) {
+        return _whitelist[addr];
     }
 
     // Check if an address is included in discount list
@@ -95,7 +92,7 @@ contract Ticket is ERC721Enumerable, Ownable {
         require(publicSaleActive, "Sale is not active");
 
         bool isDiscounted = _discountList[msg.sender];
-        bool isAllowed = _allowList[msg.sender];
+        bool isWhitelist = _whitelist[msg.sender];
 
         bool ethPayment = enforceValidMintAsset(mintAsset);
 
@@ -104,22 +101,11 @@ contract Ticket is ERC721Enumerable, Ownable {
 
         uint256 ts = totalSupply();
 
-        // Defaulting to virtual type settings
-        if(ethPayment) {
-            ethPaymentRequired = ETH_PRICE_PER_TOKEN_DISCOUNTED;
-        } else {
-            usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
-        }
-
-        tokenTicketTypes[ts] = 0;
-
         // Figure out the amounts need to be paid
         if(isPhysical) {
-            require(isAllowed, "Not whitelisted");
+            require(isWhitelist, "Not whitelisted");
 
-            require(ts + 1 <= MAX_SUPPLY, "Physical tickets are sold out");
-
-            tokenTicketTypes[ts] = 1;
+            require(physicalTokenIds.length < MAX_SUPPLY, "Physical tickets are sold out");
 
             if(!isDiscounted) {
                 if(ethPayment) {
@@ -128,7 +114,20 @@ contract Ticket is ERC721Enumerable, Ownable {
                     usdPaymentRequired = USD_PRICE_PER_TOKEN;
                 }
             }
-        } 
+
+            tokenTicketTypes[ts] = 1;
+            virtualTokenIds.push(ts);
+        } else {
+            // Defaulting to virtual type settings
+            if(ethPayment) {
+                ethPaymentRequired = ETH_PRICE_PER_TOKEN_DISCOUNTED;
+            } else {
+                usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
+            }
+
+            tokenTicketTypes[ts] = 0;
+            virtualTokenIds.push(ts);
+        }
 
         // Take payments
         if(ethPayment) {
@@ -148,15 +147,11 @@ contract Ticket is ERC721Enumerable, Ownable {
     }
 
     // Pre-mint n number of tokens into the owner's wallet
-    function mintToAddress(uint256 n, bool isVirtual) public onlyOwner {
+    function mintToAddress(uint256 n, bool isPhysical) public onlyOwner {
         uint ts = totalSupply();
         for (uint i = 0; i < n; i++) {
             uint tokenId = ts + i;
-            if (isVirtual) {
-                tokenTicketTypes[tokenId] = 0;
-            } else {
-                tokenTicketTypes[tokenId] = 1;
-            }
+            tokenTicketTypes[tokenId] = isPhysical ? 1 : 0;
             _safeMint(msg.sender, tokenId);
         }
     }
