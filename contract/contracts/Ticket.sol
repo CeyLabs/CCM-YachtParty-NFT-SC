@@ -7,35 +7,34 @@ import "@openzeppelin/contracts@4.6.0/token/ERC721/extensions/ERC721Enumerable.s
 import "@openzeppelin/contracts@4.6.0/token/ERC20/IERC20.sol";
 
 contract Ticket is ERC721Enumerable, Ownable {
-    bool public saleIsActive = false;
-    string private _baseURIextended;
+    using Strings for uint256;
 
-    bool public isAllowListActive = false;
+    bool public publicSaleActive = false;
+    string private _baseTokenURI;
+
+    // 0 for virtual, 1 for physical
+    mapping(uint256 => uint256) public tokenTicketTypes;
+
+    uint[] private virtualTokenIds;
+    uint[] private physicalTokenIds;
+
     uint256 public constant MAX_SUPPLY = 50;
     uint256 public ETH_PRICE_PER_TOKEN = 0.03 ether;
     uint256 public ETH_PRICE_PER_TOKEN_DISCOUNTED = 0.0225 ether;
     uint256 public USD_PRICE_PER_TOKEN = 100 * 10 ** 6;
     uint256 public USD_PRICE_PER_TOKEN_DISCOUNTED = 75 * 10 ** 6;
-    IERC20 public usdc;
-    IERC20 public usdt;
 
-    mapping(address => bool) private _allowList;
+    mapping(address => bool) private _whitelist;
     mapping(address => bool) private _discountList;
+
+    mapping(string => IERC20) private _stablecoins;
 
     constructor(
         address _usdcAddress,
         address _usdtAddress
     ) ERC721("Ticket", "TICKET") {
-        usdc = IERC20(_usdcAddress);
-        usdt = IERC20(_usdtAddress);
-    }
-
-    // USDC ETH SEPOLA ->	0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
-    // USDT ETH SEPOLA ->	0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0
-
-    // Toggle whitelist allow status
-    function setIsAllowListActive(bool _isAllowListActive) external onlyOwner {
-        isAllowListActive = _isAllowListActive;
+        _stablecoins["USDT"] = IERC20(_usdtAddress);
+        _stablecoins["USDC"] = IERC20(_usdcAddress);
     }
 
     // Set new eth mint price
@@ -43,12 +42,12 @@ contract Ticket is ERC721Enumerable, Ownable {
         ETH_PRICE_PER_TOKEN = _ethPricePerToken;
     }
 
-    function setAllowList(
+    function setWhitelist(
         address[] calldata addresses,
-        bool isAllowed
+        bool isWhitelisted
     ) external onlyOwner {
         for (uint256 i = 0; i < addresses.length; i++) {
-            _allowList[addresses[i]] = isAllowed;
+            _whitelist[addresses[i]] = isWhitelisted;
         }
     }
 
@@ -61,9 +60,9 @@ contract Ticket is ERC721Enumerable, Ownable {
         }
     }
 
-    // Check if an address is included in allowed list
-    function isAddressAllowed(address addr) external view returns (bool) {
-        return _allowList[addr];
+    // Check if an address is included in whitelist
+    function isAddressWhitelisted(address addr) external view returns (bool) {
+        return _whitelist[addr];
     }
 
     // Check if an address is included in discount list
@@ -71,89 +70,97 @@ contract Ticket is ERC721Enumerable, Ownable {
         return _discountList[addr];
     }
 
+    function enforceValidMintAsset(string memory mintAsset) private pure returns (bool) {
+        bool stablecoinPayment = keccak256(bytes(mintAsset)) == keccak256(bytes("USDC")) || keccak256(bytes(mintAsset)) == keccak256(bytes("USDT"));
+        bool ethPayment = keccak256(bytes(mintAsset)) == keccak256(bytes("ETH"));
+
+        require(stablecoinPayment || ethPayment, "Invalid asset");
+
+        return ethPayment;
+    }
+
+    function ticketTypeOf(uint256 tokenId) public view returns (string memory) {
+        if(tokenTicketTypes[tokenId] == 0) {
+            return "Virtual";
+        } else {
+            return "Physical";
+        }
+    } 
+
     // Discounted Mint
-    function mintDiscountedWithETH() external payable {
-        uint256 ts = totalSupply();
-        require(_discountList[msg.sender], "Address not allowed to mint");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            ETH_PRICE_PER_TOKEN_DISCOUNTED <= msg.value,
-            "Ether value sent is not correct"
-        );
+    function mintToken(string memory mintAsset, bool isPhysical) public payable {
+        require(publicSaleActive, "Sale is not active");
 
+        bool isDiscounted = _discountList[msg.sender];
+        bool isWhitelist = _whitelist[msg.sender];
+
+        bool ethPayment = enforceValidMintAsset(mintAsset);
+
+        uint256 ethPaymentRequired;
+        uint256 usdPaymentRequired;
+
+        uint256 ts = totalSupply();
+
+        // Figure out the amounts need to be paid
+        if(isPhysical) {
+            require(isWhitelist, "Not whitelisted");
+
+            require(physicalTokenIds.length < MAX_SUPPLY, "Physical tickets are sold out");
+
+            if(!isDiscounted) {
+                if(ethPayment) {
+                    ethPaymentRequired = ETH_PRICE_PER_TOKEN;
+                } else {
+                    usdPaymentRequired = USD_PRICE_PER_TOKEN;
+                }
+            }
+
+            tokenTicketTypes[ts] = 1;
+            physicalTokenIds.push(ts);
+        } else {
+            // Defaulting to virtual type settings
+            if(ethPayment) {
+                ethPaymentRequired = ETH_PRICE_PER_TOKEN_DISCOUNTED;
+            } else {
+                usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
+            }
+
+            tokenTicketTypes[ts] = 0;
+            virtualTokenIds.push(ts);
+        }
+
+        // Take payments
+        if(ethPayment) {
+            require(ethPaymentRequired <= msg.value, "Ether value sent is not correct");
+        } else {
+            require(
+                _stablecoins[mintAsset].transferFrom(
+                    msg.sender,
+                    address(this),
+                    usdPaymentRequired
+                ),
+                "Stablecoin transfer failed"
+            );
+        }
+        
         _safeMint(msg.sender, ts);
     }
 
-    function mintDiscountedWithUSDC() external {
-        uint256 ts = totalSupply();
-        require(_discountList[msg.sender], "Address not allowed to mint");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            usdc.transferFrom(
-                msg.sender,
-                address(this),
-                USD_PRICE_PER_TOKEN_DISCOUNTED
-            ),
-            "USDC transfer failed"
-        );
+    // Pre-mint n number of tokens into the owner's wallet
+    function mintToAddress(uint256 n, bool isPhysical) public onlyOwner {
+        uint ts = totalSupply();
+        for (uint i = 0; i < n; i++) {
+            uint tokenId = ts + i;
 
-        _safeMint(msg.sender, ts);
-    }
-
-    function mintDiscountedWithUSDT() external {
-        uint256 ts = totalSupply();
-        require(_discountList[msg.sender], "Address not allowed to mint");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            usdt.transferFrom(
-                msg.sender,
-                address(this),
-                USD_PRICE_PER_TOKEN_DISCOUNTED
-            ),
-            "USDT transfer failed"
-        );
-
-        _safeMint(msg.sender, ts);
-    }
-
-    //Whitelist Mint
-    function mintAllowedWithETH() external payable {
-        uint256 ts = totalSupply();
-        require(isAllowListActive, "Allow list is not active");
-        require(_allowList[msg.sender], "Address not allowed to mint");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            ETH_PRICE_PER_TOKEN <= msg.value,
-            "Ether value sent is not correct"
-        );
-
-        _safeMint(msg.sender, ts);
-    }
-
-    function mintAllowedWithUSDC() external {
-        uint256 ts = totalSupply();
-        require(isAllowListActive, "Allow list is not active");
-        require(_allowList[msg.sender], "Address not allowed to mint");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            usdc.transferFrom(msg.sender, address(this), USD_PRICE_PER_TOKEN),
-            "USDC transfer failed"
-        );
-
-        _safeMint(msg.sender, ts);
-    }
-
-    function mintAllowedWithUSDT() external {
-        uint256 ts = totalSupply();
-        require(isAllowListActive, "Allow list is not active");
-        require(_allowList[msg.sender], "Address not allowed to mint");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            usdt.transferFrom(msg.sender, address(this), USD_PRICE_PER_TOKEN),
-            "USDT transfer failed"
-        );
-
-        _safeMint(msg.sender, ts);
+            if(isPhysical) {
+                tokenTicketTypes[tokenId] = 1;
+                physicalTokenIds.push(tokenId);
+            } else {
+                tokenTicketTypes[tokenId] = 0;
+                virtualTokenIds.push(tokenId);
+            }
+            _safeMint(msg.sender, tokenId);
+        }
     }
 
     function supportsInterface(
@@ -163,89 +170,42 @@ contract Ticket is ERC721Enumerable, Ownable {
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner {
-        _baseURIextended = baseURI_;
+        _baseTokenURI = baseURI_;
     }
 
-    function _baseURI() internal view virtual override returns (string memory) {
-        return _baseURIextended;
-    }
-
-    // Pre-mint n number of tokens into the owner's wallet
-    function reserve(uint256 n) public onlyOwner {
-        uint ts = totalSupply();
-        require(ts + n <= MAX_SUPPLY, "Minting would exceed max supply");
-        uint i;
-        for (i = 0; i < n; i++) {
-            _safeMint(msg.sender, ts + i);
-        }
+    function _baseURI() internal view override returns (string memory) {
+        return _baseTokenURI;
     }
 
     // Toggle the sale state
-    function setSaleState(bool newState) public onlyOwner {
-        saleIsActive = newState;
+    function togglePublicSaleState() public onlyOwner {
+        publicSaleActive = !publicSaleActive;
     }
 
-    // Public mint with ETH
-    function mintWithETH() public payable {
-        uint256 ts = totalSupply();
-        require(saleIsActive, "Sale must be active to mint tokens");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        require(
-            ETH_PRICE_PER_TOKEN <= msg.value,
-            "Ether value sent is not correct"
-        );
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
 
-        _safeMint(msg.sender, ts);
-    }
-
-    // Public mint with USDC
-    function mintWithUSDC() external {
-        uint256 ts = totalSupply();
-        require(saleIsActive, "Sale must be active to mint tokens");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        uint256 totalCost = USD_PRICE_PER_TOKEN;
-        require(
-            usdc.transferFrom(msg.sender, address(this), totalCost),
-            "USDC transfer failed"
-        );
-
-        _safeMint(msg.sender, ts);
-    }
-
-    // Public mint with USDT
-    function mintWithUSDT() external {
-        uint256 ts = totalSupply();
-        require(saleIsActive, "Sale must be active to mint tokens");
-        require(ts + 1 <= MAX_SUPPLY, "Purchase would exceed max tokens");
-        uint256 totalCost = USD_PRICE_PER_TOKEN;
-        require(
-            usdt.transferFrom(msg.sender, address(this), totalCost),
-            "USDT transfer failed"
-        );
-
-        _safeMint(msg.sender, ts);
-    }
-
-    // Mint a token to a given address
-    function mintToAddress(address to) public onlyOwner {
-        uint256 ts = totalSupply();
-        require(ts + 1 <= MAX_SUPPLY, "Minting would exceed max supply");
-
-        _safeMint(to, ts);
-    }
-
-    // Withdraw ETH balance in the contract
-    function withdrawETH() public onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
+        string memory baseURI = _baseURI();
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
     }
 
     // Withdraw USDC balance in the contract
-    function withdrawUSDC() public onlyOwner {
-        usdc.transfer(msg.sender, usdc.balanceOf(address(this)));
+    function withdraw(string memory withdrawAsset) public onlyOwner {
+        bool ethPayment = enforceValidMintAsset(withdrawAsset);
+
+        if(ethPayment) {
+            payable(msg.sender).transfer(address(this).balance);
+        } else {
+            IERC20 stablecoin = _stablecoins[withdrawAsset];
+            stablecoin.transfer(msg.sender, stablecoin.balanceOf(address(this)));
+        }
     }
 
-    // Withdraw USDT balance in the contract
-    function withdrawUSDT() public onlyOwner {
-        usdt.transfer(msg.sender, usdt.balanceOf(address(this)));
+    function getVirtualTokenIds() public view returns (uint[] memory) {
+        return virtualTokenIds;
+    }
+
+    function getPhysicalTokenIds() public view returns (uint[] memory) {
+        return physicalTokenIds;
     }
 }
