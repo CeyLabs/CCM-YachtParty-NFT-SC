@@ -15,8 +15,8 @@ contract Ticket is ERC721Enumerable, Ownable {
     // 0 for virtual, 1 for physical
     mapping(uint256 => uint256) public tokenTicketTypes;
 
-    uint[] public virtualTokenIds;
-    uint[] public physicalTokenIds;
+    uint[] private virtualTokenIds;
+    uint[] private physicalTokenIds;
 
     uint256 public constant MAX_SUPPLY = 50;
     uint256 public ETH_PRICE_PER_TOKEN = 0.03 ether;
@@ -116,7 +116,7 @@ contract Ticket is ERC721Enumerable, Ownable {
             }
 
             tokenTicketTypes[ts] = 1;
-            virtualTokenIds.push(ts);
+            physicalTokenIds.push(ts);
         } else {
             // Defaulting to virtual type settings
             if(ethPayment) {
@@ -151,7 +151,14 @@ contract Ticket is ERC721Enumerable, Ownable {
         uint ts = totalSupply();
         for (uint i = 0; i < n; i++) {
             uint tokenId = ts + i;
-            tokenTicketTypes[tokenId] = isPhysical ? 1 : 0;
+
+            if(isPhysical) {
+                tokenTicketTypes[tokenId] = 1;
+                physicalTokenIds.push(tokenId);
+            } else {
+                tokenTicketTypes[tokenId] = 0;
+                virtualTokenIds.push(tokenId);
+            }
             _safeMint(msg.sender, tokenId);
         }
     }
@@ -192,5 +199,13 @@ contract Ticket is ERC721Enumerable, Ownable {
             IERC20 stablecoin = _stablecoins[withdrawAsset];
             stablecoin.transfer(msg.sender, stablecoin.balanceOf(address(this)));
         }
+    }
+
+    function getVirtualTokenIds() public view returns (uint[] memory) {
+        return virtualTokenIds;
+    }
+
+    function getPhysicalTokenIds() public view returns (uint[] memory) {
+        return physicalTokenIds;
     }
 }
