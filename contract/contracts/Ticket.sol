@@ -87,6 +87,12 @@ contract Ticket is ERC721Enumerable, Ownable {
         }
     } 
 
+    event TokenMinted(
+        uint256 indexed tokenId,
+        address recipient,
+        uint8 tokenType
+    );
+
     // Discounted Mint
     function mintToken(string memory mintAsset, bool isPhysical) public payable {
         require(publicSaleActive, "Sale is not active");
@@ -144,6 +150,7 @@ contract Ticket is ERC721Enumerable, Ownable {
         }
         
         _safeMint(msg.sender, ts);
+        emit TokenMinted(ts, msg.sender, isPhysical ? 1 : 0);
     }
 
     // Pre-mint n number of tokens into the owner's wallet
@@ -160,6 +167,7 @@ contract Ticket is ERC721Enumerable, Ownable {
                 virtualTokenIds.push(tokenId);
             }
             _safeMint(msg.sender, tokenId);
+            emit TokenMinted(tokenId, msg.sender, isPhysical ? 1 : 0);
         }
     }
 
