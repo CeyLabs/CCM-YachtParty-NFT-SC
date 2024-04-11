@@ -82,7 +82,11 @@ contract Ticket is ERC721Enumerable, Ownable {
     event TokenMinted(
         uint256 indexed tokenId,
         address recipient,
-        bool isPhysicalToken
+        bool isPhysicalToken,
+        bool isWhitelisted,
+        bool isDiscounted,
+        bool publicMint,
+        PaymentAsset mintAsset
     );
 
     // Public Mint
@@ -90,7 +94,7 @@ contract Ticket is ERC721Enumerable, Ownable {
         require(isPublicSaleActive, "Sale is not active");
 
         bool isDiscounted = discountList[msg.sender];
-        bool isWhitelist = whitelist[msg.sender];
+        bool isWhitelisted = whitelist[msg.sender];
 
         bool isETHPayment = mintAsset == PaymentAsset.ETH;
 
@@ -101,7 +105,7 @@ contract Ticket is ERC721Enumerable, Ownable {
 
         // Figure out the amounts need to be paid
         if(isPhysical) {
-            require(isWhitelist, "Not whitelisted");
+            require(isWhitelisted, "Not whitelisted");
             require(physicalTokenIds.length < MAX_PHYSICAL_SUPPLY, "Physical tickets are sold out");
 
             if(!isDiscounted) {
@@ -141,7 +145,7 @@ contract Ticket is ERC721Enumerable, Ownable {
         }
         
         _safeMint(msg.sender, nextTokenId);
-        emit TokenMinted(nextTokenId, msg.sender, isPhysical);
+        emit TokenMinted(nextTokenId, msg.sender, isPhysical, isWhitelisted, isDiscounted, true, mintAsset);
     }
 
     // Pre-mint n number of tokens into the owner's wallet
@@ -158,7 +162,7 @@ contract Ticket is ERC721Enumerable, Ownable {
                 virtualTokenIds.push(tokenId);
             }
             _safeMint(msg.sender, tokenId);
-            emit TokenMinted(tokenId, msg.sender, isPhysical);
+            emit TokenMinted(tokenId, msg.sender, isPhysical, false, false, false, PaymentAsset.ETH);
         }
     }
 
