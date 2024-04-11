@@ -168,8 +168,8 @@ contract Ticket is ERC721Enumerable, Ownable {
         return super.supportsInterface(interfaceId);
     }
 
-    function setBaseURI(string memory baseURI_) external onlyOwner {
-        _baseTokenURI = baseURI_;
+    function setBaseURI(string memory newBaseURI) external onlyOwner {
+        _baseTokenURI = newBaseURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -179,13 +179,6 @@ contract Ticket is ERC721Enumerable, Ownable {
     // Toggle the sale state
     function togglePublicSaleState() public onlyOwner {
         isPublicSaleActive = !isPublicSaleActive;
-    }
-
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
-
-        string memory baseURI = _baseURI();
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
     }
 
     // Withdraw USDC balance in the contract
