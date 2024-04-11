@@ -19,16 +19,17 @@ contract Ticket is ERC721Enumerable, Ownable {
     bool public isPublicSaleActive = false;
     string private _baseTokenURI;
 
-    // tokenId => physical (true) or virtual (false)
-    mapping(uint256 => bool) public tokenIsPhysical;
+    enum PaymentAsset { ETH, USDT, USDC }
+    enum TicketType { Virtual, Physical }
+
+    // tokenId => TicketType
+    mapping(uint256 => TicketType) public tokenTicketType;
 
     uint256[] private virtualTokenIds;
     uint256[] private physicalTokenIds;
 
     mapping(address => bool) private whitelist;
     mapping(address => bool) private discountList;
-
-    enum PaymentAsset { ETH, USDT, USDC }
 
     mapping(PaymentAsset => IERC20) private ERC20Token;
 
@@ -74,9 +75,9 @@ contract Ticket is ERC721Enumerable, Ownable {
     }
 
     // To check the type of a given tokenId
-    function ticketTypeOf(uint256 tokenId) public view returns (string memory) {
-        return tokenIsPhysical[tokenId] ? "Physical" : "Virtual";
-    } 
+    function ticketTypeOf(uint256 tokenId) public view returns (TicketType) {
+        return tokenTicketType[tokenId];
+    }
 
     // Event to be triggered upon token mint
     event TokenMinted(
@@ -116,7 +117,7 @@ contract Ticket is ERC721Enumerable, Ownable {
                 }
             }
 
-            tokenIsPhysical[nextTokenId] = true;
+            tokenTicketType[nextTokenId] = TicketType.Physical;
             physicalTokenIds.push(nextTokenId);
         } else {
             // Defaulting to virtual type settings
@@ -126,7 +127,7 @@ contract Ticket is ERC721Enumerable, Ownable {
                 usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
             }
 
-            tokenIsPhysical[nextTokenId] = false;
+            tokenTicketType[nextTokenId] = TicketType.Virtual;
             virtualTokenIds.push(nextTokenId);
         }
 
@@ -155,10 +156,10 @@ contract Ticket is ERC721Enumerable, Ownable {
             uint tokenId = ts + i;
 
             if(isPhysical) {
-                tokenIsPhysical[tokenId] = true;
+                tokenTicketType[tokenId] = TicketType.Physical;
                 physicalTokenIds.push(tokenId);
             } else {
-                tokenIsPhysical[tokenId] = false;
+                tokenTicketType[tokenId] = TicketType.Virtual;
                 virtualTokenIds.push(tokenId);
             }
             _safeMint(msg.sender, tokenId);
