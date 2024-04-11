@@ -145,7 +145,7 @@ contract Ticket is ERC721Enumerable, Ownable {
     }
 
     // Pre-mint n number of tokens into the owner's wallet
-    function mintToAddress(uint256 n, bool isPhysical) public onlyOwner {
+    function reserve(uint256 n, bool isPhysical) public onlyOwner {
         uint ts = totalSupply();
         for (uint i = 0; i < n; i++) {
             uint tokenId = ts + i;
