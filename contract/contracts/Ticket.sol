@@ -85,7 +85,7 @@ contract Ticket is ERC721Enumerable, Ownable {
         bool isPhysicalToken,
         bool isWhitelisted,
         bool isDiscounted,
-        bool publicMint,
+        bool isPublicMint,
         PaymentAsset mintAsset
     );
 
