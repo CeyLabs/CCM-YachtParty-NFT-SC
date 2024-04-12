@@ -149,8 +149,8 @@ contract Ticket is ERC721Enumerable, Ownable {
         emit TokenMinted(nextTokenId, msg.sender, isPhysical, isWhitelisted, isDiscounted, true, mintAsset);
     }
 
-    // Pre-mint n number of tokens into the owner's wallet
-    function reserve(uint256 n, bool isPhysical) public onlyOwner {
+    // Pre-mint n number of tokens into a given wallet
+    function reserveTo(uint256 n, address to, bool isPhysical) public onlyOwner {
         uint ts = totalSupply();
         for (uint i = 0; i < n; i++) {
             uint tokenId = ts + i;
@@ -162,8 +162,8 @@ contract Ticket is ERC721Enumerable, Ownable {
                 tokenTicketType[tokenId] = TicketType.Virtual;
                 virtualTokenIds.push(tokenId);
             }
-            _safeMint(msg.sender, tokenId);
-            emit TokenMinted(tokenId, msg.sender, isPhysical, false, false, false, PaymentAsset.ETH);
+            _safeMint(to, tokenId);
+            emit TokenMinted(tokenId, to, isPhysical, false, false, false, PaymentAsset.ETH);
         }
     }
 
