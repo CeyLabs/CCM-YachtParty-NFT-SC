@@ -36,7 +36,7 @@ contract Ticket is ERC721Enumerable, Ownable {
     constructor(
         address _usdcAddress,
         address _usdtAddress
-    ) ERC721("YachtPartyNFT", "YACHT") {
+    ) ERC721("Ceylon Halving Yacht Party NFT", "CCMHYP") {
         ERC20Token[PaymentAsset.USDT] = IERC20(_usdtAddress);
         ERC20Token[PaymentAsset.USDC] = IERC20(_usdcAddress);
     }
