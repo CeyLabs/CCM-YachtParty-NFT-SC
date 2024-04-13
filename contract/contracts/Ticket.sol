@@ -109,18 +109,10 @@ contract Ticket is ERC721Enumerable, Ownable {
             require(isWhitelisted, "Not whitelisted");
             require(physicalTokenIds.length < MAX_PHYSICAL_SUPPLY, "Physical tickets are sold out");
 
-            if(isDiscounted) {
-                if(isETHPayment) {
-                    ethPaymentRequired = ETH_PRICE_PER_TOKEN_DISCOUNTED;
-                } else {
-                    usdPaymentRequired = USD_PRICE_PER_TOKEN_DISCOUNTED;
-                }
+            if(isETHPayment) {
+                ethPaymentRequired = isDiscounted ? ETH_PRICE_PER_TOKEN_DISCOUNTED : ETH_PRICE_PER_TOKEN;
             } else {
-                if(isETHPayment) {
-                    ethPaymentRequired = ETH_PRICE_PER_TOKEN;
-                } else {
-                    usdPaymentRequired = USD_PRICE_PER_TOKEN;
-                }
+                usdPaymentRequired = isDiscounted ? USD_PRICE_PER_TOKEN_DISCOUNTED : USD_PRICE_PER_TOKEN;
             }
 
             tokenTicketType[nextTokenId] = TicketType.Physical;
