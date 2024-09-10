@@ -1,0 +1,16 @@
+{
+  "description": "Ceylon Crypto Meetup - Yacht Party 2024: where Sri Lanka's crypto community meets, innovates, and celebrates amidst the anticipation of the 2024 halving event",
+  "external_url": "https://ceylabs.io/",
+  "image": "https://api.pudgypenguins.io/lil/image/123",
+  "name": "Ticket #123",
+  "attributes": [
+    { "trait_type": "Event ID", "value": "2" },
+    { "trait_type": "Event Type", "value": "IRL" },
+    { "trait_type": "Location", "value": "Somewhere in the sea on a yacht" },
+    { "trait_type": "Participation", "value": "In-Person" },
+    { "trait_type": "Ticket ID", "value": "123" },
+    { "trait_type": "Ticket Type", "value": "VIP" },
+    { "trait_type": "CCM Count", "value": "5" },
+    { "trait_type": "Block Height", "value": "840,000" }
+  ]
+}
